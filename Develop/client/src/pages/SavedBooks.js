@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Jumbotron, Container, CardColumns, Card, Button } from 'react-bootstrap';
-import { ADD_BOOK } from '../utils/mutation';
-import { useMutation } from '@apollo/client';
-import { getMe, deleteBook } from '../utils/API';
+import { REMOVE_BOOK } from '../utils/mutation';
+// import { getMe, deleteBook } from '../utils/API';
 import Auth from '../utils/auth';
 import { removeBookId } from '../utils/localStorage';
+import { useMutation, useLazyQuery } from '@apollo/client';
+import { QUERY_ME } from '../utils/queries';
 
 const SavedBooks = () => {
   const [userData, setUserData] = useState({});
-
+  const [getMe, { error: meError }] = useLazyQuery(QUERY_ME);
   // use this to determine if `useEffect()` hook needs to run again
   const userDataLength = Object.keys(userData).length;
-  const [addBookMutation, { error }] = useMutation(ADD_BOOK)
+  const [removeBookMutation, { error }] = useMutation(REMOVE_BOOK)
   useEffect(() => {
     const getUserData = async () => {
       try {
@@ -22,13 +23,13 @@ const SavedBooks = () => {
           return false;
         }
 
-        const response = await addBookMutation(token);
-
-        if (!response.ok) {
+        const response = await getMe();
+        console.log(response);
+        if (!response.data) {
           throw new Error('something went wrong!');
         }
 
-        const user = await response.json();
+        const { user } = await response.data.me;
         setUserData(user);
       } catch (err) {
         console.error(err);
@@ -47,14 +48,17 @@ const SavedBooks = () => {
     }
 
     try {
-      const response = await deleteBook(bookId, token);
-
-      if (!response.ok) {
+      // const response = await deleteBook(bookId, token);
+      const response = await removeBookMutation({
+        variables: { bookId }
+      });
+      console.log(response)
+      if (!response.data) {
         throw new Error('something went wrong!');
       }
 
-      const updatedUser = await response.json();
-      setUserData(updatedUser);
+
+      setUserData(response.data.removeBook.user);
       // upon success, remove book's id from localStorage
       removeBookId(bookId);
     } catch (err) {
